@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Menu } from 'lucide-react';
-import Sidebar from './Sidebar';
+import Sidebar from '../components/Sidebar';
 
 const AdminLayout = ({ user, onLogout, children, title }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
