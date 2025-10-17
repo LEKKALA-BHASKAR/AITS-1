@@ -1,0 +1,146 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import StudentLayout from '../../components/StudentLayout';
+import { Calendar, FileText, Award, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const StudentDashboard = ({ user, onLogout }) => {
+  const [attendance, setAttendance] = useState(null);
+  const [results, setResults] = useState([]);
+  const [achievements, setAchievements] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const [attendanceRes, resultsRes, achievementsRes] = await Promise.all([
+        axios.get(`${API}/attendance/student/${user._id}`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`${API}/results/student/${user._id}`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`${API}/achievements/student/${user._id}`, { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+      
+      setAttendance(attendanceRes.data.data);
+      setResults(resultsRes.data.data);
+      setAchievements(achievementsRes.data.data);
+    } catch (error) {
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const stats = [
+    { 
+      title: 'Attendance', 
+      value: attendance?.statistics?.percentage ? `${attendance.statistics.percentage}%` : '0%', 
+      icon: Calendar, 
+      color: 'bg-blue-500',
+      status: attendance?.statistics?.percentage >= 75 ? 'good' : 'warning'
+    },
+    { 
+      title: 'Total Results', 
+      value: results.length || 0, 
+      icon: FileText, 
+      color: 'bg-green-500' 
+    },
+    { 
+      title: 'Achievements', 
+      value: achievements.length || 0, 
+      icon: Award, 
+      color: 'bg-purple-500' 
+    },
+    { 
+      title: 'Backlogs', 
+      value: user.backlogCount || 0, 
+      icon: AlertTriangle, 
+      color: 'bg-red-500' 
+    },
+  ];
+
+  return (
+    <StudentLayout user={user} onLogout={onLogout} title="Dashboard">
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" data-testid="stats-grid">
+            {stats.map((stat, index) => {
+              const Icon = stat.icon;
+              return (
+                <div key={index} className="card" data-testid={`stat-card-${index}`}>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-gray-600 text-sm font-medium">{stat.title}</p>
+                      <p className="text-3xl font-bold mt-2" style={{ fontFamily: 'Space Grotesk' }}>
+                        {stat.value}
+                      </p>
+                      {stat.status === 'warning' && (
+                        <p className="text-xs text-red-600 mt-1">Below 75%</p>
+                      )}
+                    </div>
+                    <div className={`${stat.color} p-3 rounded-lg`}>
+                      <Icon className="w-6 h-6 text-white" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="card">
+              <h2 className="text-xl font-bold mb-4" style={{ fontFamily: 'Space Grotesk' }}>Student Information</h2>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Roll Number:</span>
+                  <span className="font-medium">{user.rollNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Department:</span>
+                  <span className="font-medium">{user.departmentId?.name || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Section:</span>
+                  <span className="font-medium">{user.sectionId?.name || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Status:</span>
+                  <span className={`badge ${user.atRisk ? 'badge-danger' : 'badge-success'}`}>
+                    {user.atRisk ? 'At Risk' : user.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="card">
+              <h2 className="text-xl font-bold mb-4" style={{ fontFamily: 'Space Grotesk' }}>Recent Achievements</h2>
+              {achievements.length > 0 ? (
+                <div className="space-y-3">
+                  {achievements.slice(0, 3).map((achievement) => (
+                    <div key={achievement._id} className="p-3 bg-gray-50 rounded-lg">
+                      <p className="font-medium">{achievement.title}</p>
+                      <p className="text-sm text-gray-600">{achievement.category}</p>
+                      <p className="text-xs text-gray-500 mt-1">{new Date(achievement.date).toLocaleDateString()}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">No achievements yet</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </StudentLayout>
+  );
+};
+
+export default StudentDashboard;
