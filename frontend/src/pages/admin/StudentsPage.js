@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import AdminLayout from '../components/AdminLayout';
+import AdminLayout from '../../components/AdminLayout';
 import { Plus, Search, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 
