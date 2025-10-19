@@ -33,7 +33,7 @@ AITS CSMS is a multi-role web application designed to centralize and streamline 
 
 ## 🚀 Access
 
-Application URL: 
+Application URL: https://aits-bice.vercel.app
 
 ## 📊 Current Status
 
