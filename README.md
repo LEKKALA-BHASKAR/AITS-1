@@ -33,7 +33,7 @@ AITS CSMS is a multi-role web application designed to centralize and streamline 
 
 ## 🚀 Access
 
-Application URL: https://aits-csms.preview.emergentagent.com
+Application URL: 
 
 ## 📊 Current Status
 
@@ -55,4 +55,3 @@ Application URL: https://aits-csms.preview.emergentagent.com
 - Role-based access control
 - Protected API routes
 - Secure image upload via Cloudinary
-# ReactJSAssignment
