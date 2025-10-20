@@ -13,55 +13,103 @@ const StudentDashboard = ({ user, onLogout }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    let isMounted = true;
+    
+    const fetchDashboardData = async () => {
+      if (!user?._id) {
+        setLoading(false);
+        return;
+      }
 
-  const fetchDashboardData = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const [attendanceRes, resultsRes, achievementsRes] = await Promise.all([
-        axios.get(`${API}/attendance/student/${user._id}`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${API}/results/student/${user._id}`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${API}/achievements/student/${user._id}`, { headers: { Authorization: `Bearer ${token}` } })
-      ]);
-      
-      setAttendance(attendanceRes.data.data);
-      setResults(resultsRes.data.data);
-      setAchievements(achievementsRes.data.data);
-    } catch (error) {
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          toast.error('Authentication token missing');
+          setLoading(false);
+          return;
+        }
+
+        const headers = { Authorization: `Bearer ${token}` };
+        
+        const [attendanceRes, resultsRes, achievementsRes] = await Promise.all([
+          axios.get(`${API}/attendance/student/${user._id}`, { headers }),
+          axios.get(`${API}/results/student/${user._id}`, { headers }),
+          axios.get(`${API}/achievements/student/${user._id}`, { headers })
+        ]);
+        
+        // Safe data extraction with fallbacks
+        if (isMounted) {
+          setAttendance(attendanceRes.data?.data || null);
+          setResults(resultsRes.data?.data || []);
+          setAchievements(achievementsRes.data?.data || []);
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('Dashboard data fetch error:', error);
+          toast.error('Failed to load dashboard data');
+          // Set default values on error
+          setAttendance(null);
+          setResults([]);
+          setAchievements([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchDashboardData();
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [user?._id]); // Added dependency
+
+  // Calculate attendance percentage safely
+  const getAttendancePercentage = () => {
+    if (!attendance?.statistics?.percentage) return 0;
+    const percentage = parseFloat(attendance.statistics.percentage);
+    return isNaN(percentage) ? 0 : percentage;
   };
+
+  const attendancePercentage = getAttendancePercentage();
 
   const stats = [
     { 
       title: 'Attendance', 
-      value: attendance?.statistics?.percentage ? `${attendance.statistics.percentage}%` : '0%', 
+      value: `${attendancePercentage}%`, 
       icon: Calendar, 
       color: 'bg-blue-500',
-      status: attendance?.statistics?.percentage >= 75 ? 'good' : 'warning'
+      status: attendancePercentage >= 75 ? 'good' : 'warning'
     },
     { 
       title: 'Total Results', 
-      value: results.length || 0, 
+      value: results?.length || 0, 
       icon: FileText, 
       color: 'bg-green-500' 
     },
     { 
       title: 'Achievements', 
-      value: achievements.length || 0, 
+      value: achievements?.length || 0, 
       icon: Award, 
       color: 'bg-purple-500' 
     },
     { 
       title: 'Backlogs', 
-      value: user.backlogCount || 0, 
+      value: user?.backlogCount || 0, 
       icon: AlertTriangle, 
       color: 'bg-red-500' 
     },
   ];
+
+  // Safe user data access
+  const userRollNumber = user?.rollNumber || 'N/A';
+  const userDepartment = user?.departmentId?.name || 'N/A';
+  const userSection = user?.sectionId?.name || 'N/A';
+  const userStatus = user?.status || 'Unknown';
+  const isAtRisk = user?.atRisk || false;
 
   return (
     <StudentLayout user={user} onLogout={onLogout} title="Dashboard">
@@ -101,20 +149,20 @@ const StudentDashboard = ({ user, onLogout }) => {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Roll Number:</span>
-                  <span className="font-medium">{user.rollNumber}</span>
+                  <span className="font-medium">{userRollNumber}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Department:</span>
-                  <span className="font-medium">{user.departmentId?.name || 'N/A'}</span>
+                  <span className="font-medium">{userDepartment}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Section:</span>
-                  <span className="font-medium">{user.sectionId?.name || 'N/A'}</span>
+                  <span className="font-medium">{userSection}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Status:</span>
-                  <span className={`badge ${user.atRisk ? 'badge-danger' : 'badge-success'}`}>
-                    {user.atRisk ? 'At Risk' : user.status}
+                  <span className={`badge ${isAtRisk ? 'badge-danger' : 'badge-success'}`}>
+                    {isAtRisk ? 'At Risk' : userStatus}
                   </span>
                 </div>
               </div>
@@ -122,13 +170,15 @@ const StudentDashboard = ({ user, onLogout }) => {
 
             <div className="card">
               <h2 className="text-xl font-bold mb-4" style={{ fontFamily: 'Space Grotesk' }}>Recent Achievements</h2>
-              {achievements.length > 0 ? (
+              {achievements?.length > 0 ? (
                 <div className="space-y-3">
                   {achievements.slice(0, 3).map((achievement) => (
                     <div key={achievement._id} className="p-3 bg-gray-50 rounded-lg">
                       <p className="font-medium">{achievement.title}</p>
                       <p className="text-sm text-gray-600">{achievement.category}</p>
-                      <p className="text-xs text-gray-500 mt-1">{new Date(achievement.date).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {achievement.date ? new Date(achievement.date).toLocaleDateString() : 'Date not available'}
+                      </p>
                     </div>
                   ))}
                 </div>
